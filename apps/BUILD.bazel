@@ -1,0 +1,411 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@pigweed//pw_build:binary_tools.bzl", "pw_elf_to_bin")
+load("//targets:transition.bzl", "stm32l4xx_cc_binary")
+load("@hedron_compile_commands//:refresh_compile_commands.bzl", "refresh_compile_commands")
+load("@pigweed//pw_build:pigweed.bzl", "pw_cc_test")
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "openocd_stm32l4xx.cfg",
+])
+
+cc_library(
+    name = "startup",
+    srcs = ["startup/startup_stm32l475xx.s"],
+    alwayslink = True,
+)
+
+################################################################################
+# application                                                                  #
+################################################################################
+
+cc_binary(
+    name = "application",
+    srcs = ["src/application/main.cc"],
+    deps = [
+        ":application_lib",
+        ":startup",
+        "//targets/stm32l4xx:linker_script",
+    ],
+    copts = ["-mcpu=cortex-m4", "-mthumb"],
+)
+
+cc_binary(
+    name = "application_slot_a",
+    srcs = ["src/application/main.cc"],
+    deps = [
+        ":application_lib",
+        ":startup",
+        "//targets/stm32l4xx:application_linker_script_a",
+    ],
+    copts = [
+        "-mcpu=cortex-m4",
+        "-mthumb",
+        "-DBLD_APP_SLOT_BUILD=1"],
+)
+
+cc_binary(
+    name = "application_slot_b",
+    srcs = ["src/application/main.cc"],
+    deps = [
+        ":application_lib",
+        ":startup",
+        "//targets/stm32l4xx:application_linker_script_b",
+    ],
+    copts = [
+        "-mcpu=cortex-m4",
+        "-mthumb",
+        "-DBLD_APP_SLOT_BUILD=1"],
+)
+
+cc_library(
+    name = "application_lib",
+    alwayslink = True,
+    srcs = glob(
+    [
+        "include/main.h",
+        "src/application/*.h",
+        "src/application/*.cc",
+        "src/application/*.c",
+        "src/bsp/*.h",
+        "src/bsp/*.c",
+    ],
+    exclude = ["src/application/main.cc"],
+    ),
+    includes = [
+        "include",
+        "src/application",
+        "src/bsp",
+    ],
+    deps = [
+        ":active_object_lib",
+        ":bootloader_confirm_lib",
+        "@cmsis_device//:default_cmsis_init",
+        "@stm32l4xx_hal_driver//:hal_driver",
+        "@freertos",
+        "@freertos//:freertos_config",
+        "@pigweed//pw_log",
+        "@pigweed//pw_sys_io_stm32cube",
+        "@pigweed//pw_assert:backend_impl",
+        "@pigweed//pw_assert:check_backend_impl",
+        "@pigweed//pw_assert:assert_backend_impl",
+        "@pigweed//pw_chrono:system_clock",
+        "@pigweed//pw_chrono:system_timer",
+        "@pigweed//pw_thread:sleep",
+        "@pigweed//pw_thread:thread_core",
+        "@pigweed//pw_string",
+        "@pigweed//pw_system:work_queue",
+    ],
+    copts = ["-mcpu=cortex-m4", "-mthumb"],
+)
+
+cc_library(
+    name = "active_object_lib",
+    hdrs = glob(["src/application/domain/active_object.hpp",]),
+    includes = ["src/application/domain"],
+    deps = [
+        "@pigweed//pw_assert:backend_impl",
+        "@pigweed//pw_assert:check_backend_impl",
+        "@pigweed//pw_assert:assert_backend_impl",
+        "@pigweed//pw_chrono:system_timer",
+        "@pigweed//pw_thread:thread_core",
+        "@pigweed//pw_sync:mutex",
+        "@pigweed//pw_sync:thread_notification",
+        "@pigweed//pw_containers:inline_queue",
+    ],
+)
+
+cc_library(
+    name = "bootloader_confirm_lib",
+    hdrs = glob(["src/application/bootloader_confirm/bld_confirm.h",]),
+    srcs = ["src/application/bootloader_confirm/bld_confirm.c"],
+    includes = ["src/application/bootloader_confirm"],
+    deps = [
+        ":bootloader_core",
+        ":bootloader_storage",
+        "@pigweed//pw_log",
+        "@stm32l4xx_hal_driver//:hal_driver",
+    ],
+)
+
+stm32l4xx_cc_binary(
+    name = "application.elf",
+    binary = ":application",
+    platform = "//targets/stm32l4xx:application_platform",
+)
+
+stm32l4xx_cc_binary(
+    name = "application_slot_a.elf",
+    binary = ":application_slot_a",
+    platform = "//targets/stm32l4xx:application_platform",
+)
+
+stm32l4xx_cc_binary(
+    name = "application_slot_b.elf",
+    binary = ":application_slot_b",
+    platform = "//targets/stm32l4xx:application_platform",
+)
+
+pw_elf_to_bin(
+    name = "application_bin",
+    bin_out = "application.bin",
+    elf_input = ":application.elf",
+)
+
+pw_elf_to_bin(
+    name = "application_slot_a_bin",
+    bin_out = "application_slot_a.bin",
+    elf_input = ":application_slot_a.elf",
+)
+
+pw_elf_to_bin(
+    name = "application_slot_b_bin",
+    bin_out = "application_slot_b.bin",
+    elf_input = ":application_slot_b.elf",
+)
+
+################################################################################
+# application test                                                             #
+################################################################################
+
+pw_cc_test(
+    name = "active_object_test",
+    srcs = ["src/application/domain/test/active_object_test.cc"],
+    deps = [
+        ":active_object_lib",
+        "@pigweed//pw_allocator:testing",
+        "@pigweed//pw_async2:dispatcher",
+        "@pigweed//pw_async2:simulated_time_provider",
+        "@pigweed//pw_chrono:system_clock",
+        "@pigweed//pw_unit_test",
+    ],
+)
+
+################################################################################
+# bootloader                                                                   #
+################################################################################
+
+cc_binary(
+    name = "bootloader",
+    srcs = [
+        "startup/startup_stm32l475xx.s",
+    ],
+    deps = [
+        ":bootloader_lib",
+    ],
+    copts = ["-mcpu=cortex-m4", "-mthumb"],
+    linkopts = [
+        "-T$(location //targets/stm32l4xx:bootloader_linker_script)",
+    ],
+    additional_linker_inputs = [
+        "//targets/stm32l4xx:bootloader_linker_script",
+    ],
+)
+
+cc_library(
+    name = "bootloader_lib",
+    alwayslink = True,
+    srcs = glob(
+    [
+        "include/main.h",
+        "src/bootloader/src/*.cc",
+        "src/bootloader/src/*.c",
+        "src/bsp/*.h",
+        "src/bsp/*.c",
+    ]),
+    includes = [
+        "include",
+        "src/bootloader",
+        "src/bootloader/include",
+        "src/bsp",
+    ],
+    deps = [
+        ":bootloader_core",
+        ":bootloader_transport_uart_dma",
+        ":bootloader_target",
+        ":bootloader_storage",
+        "@cmsis_device//:default_cmsis_init",
+        "@stm32l4xx_hal_driver//:hal_driver",
+        "@pigweed//pw_log",
+        "@pigweed//pw_sys_io_stm32cube",
+        "@pigweed//pw_assert:backend_impl",
+        "@pigweed//pw_assert:check_backend_impl",
+        "@pigweed//pw_assert:assert_backend_impl",
+    ],
+    copts = ["-mcpu=cortex-m4", "-mthumb"],
+)
+
+cc_library(
+    name = "bootloader_core",
+    srcs = [
+        "src/bootloader/src/bld_crc32.c",
+        "src/bootloader/src/bld_meta.c",
+        "src/bootloader/src/bld_engine.c",
+    ],
+    hdrs = glob([
+        "src/bootloader/include/*.h",
+    ]),
+    includes = [
+        "src/bootloader/include",
+        "src/bootloader",
+    ],
+    deps = ["@pigweed//pw_log",],
+)
+
+cc_library(
+    name = "bootloader_transport_uart_dma",
+    srcs = [
+        "src/bootloader/src/bld_transport_uart_dma.c",
+    ],
+    hdrs = glob([
+        "src/bootloader/include/*.h",
+    ]),
+    includes = [
+        "src/bootloader/include",
+        "src/bootloader",
+    ],
+)
+
+cc_library(
+    name = "bootloader_storage",
+    srcs = [
+        "src/bootloader/src/bld_storage_flash.c",
+    ],
+    hdrs = glob([
+        "src/bootloader/include/*.h",
+    ]),
+    includes = [
+        "src/bootloader/include",
+        "src/bootloader",
+    ],
+)
+
+cc_library(
+    name = "bootloader_target",
+    srcs = [
+        "src/bootloader/src/bld_boot.c",
+        "src/bootloader/src/stm32_hal_msp.c",
+        "src/bootloader/src/stm32l4xx_it.c",
+    ],
+    hdrs = glob([
+        "include/main.h",
+        "src/bootloader/include/*.h",
+        "src/bsp/*.h",
+    ]),
+    includes = [
+        "include",
+        "src/bsp",
+        "src/bootloader/include",
+        "src/bootloader",
+    ],
+    deps = [
+        "@cmsis_device//:default_cmsis_init",
+        "@stm32l4xx_hal_driver//:hal_driver",
+    ],
+)
+
+stm32l4xx_cc_binary(
+    name = "bootloader.elf",
+    binary = ":bootloader",
+    platform = "//targets/stm32l4xx:bootloader_platform",
+)
+
+pw_elf_to_bin(
+    name = "bootloader_bin",
+    bin_out = "bootloader.bin",
+    elf_input = ":bootloader.elf",
+)
+
+################################################################################
+# bootloader test                                                              #
+################################################################################
+
+pw_cc_test(
+    name = "bld_crc32_test",
+    srcs = [
+        "src/bootloader/test/bld_crc32_test.cc",
+    ],
+    deps = [
+        ":bootloader_core",
+        "@pigweed//pw_unit_test",
+    ],
+)
+
+cc_library(
+    name = "bootloader_test_stubs",
+    srcs = [
+        "src/bootloader/test/test_stubs.cc",
+    ],
+    hdrs = [
+        "src/bootloader/test/test_stubs.hpp",
+    ],
+    includes = [
+        "src/bootloader/test",
+    ],
+    deps = [
+        ":bootloader_core",
+    ],
+)
+
+pw_cc_test(
+    name = "bld_meta_test",
+    srcs = [
+        "src/bootloader/test/bld_meta_test.cc",
+    ],
+    deps = [
+        ":bootloader_core",
+        ":bootloader_test_stubs",
+        "@pigweed//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "bld_engine_test",
+    srcs = [
+        "src/bootloader/test/bld_engine_test.cc",
+    ],
+    deps = [
+        ":bootloader_core",
+        ":bootloader_test_stubs",
+        "@pigweed//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "bld_transport_uart_dma_test",
+    srcs = [
+        "src/bootloader/test/bld_transport_uart_dma_test.cc",
+    ],
+    deps = [
+        ":bootloader_transport_uart_dma",
+        ":bootloader_test_stubs",
+        "@pigweed//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "bld_storage_flash_test",
+    srcs = [
+        "src/bootloader/test/bld_storage_flash_test.cc",
+    ],
+    deps = [
+        ":bootloader_storage",
+        ":bootloader_test_stubs",
+        "@pigweed//pw_unit_test",
+    ],
+)
+
+################################################################################
+# compilation database                                                         #
+################################################################################
+
+refresh_compile_commands(
+    name = "compdb",
+    targets = [
+        "//apps:application_slot_a.elf",
+        "//apps:application_slot_b.elf",
+        "//apps:bootloader.elf",
+    ],
+)
