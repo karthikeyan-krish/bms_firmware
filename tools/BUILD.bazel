@@ -50,3 +50,8 @@ cc_binary(
         # "-lpthread",
     ],
 )
+
+sh_binary(
+    name = "format",
+    srcs = ["format.sh"],
+)
