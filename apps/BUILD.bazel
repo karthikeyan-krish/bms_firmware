@@ -80,7 +80,6 @@ cc_library(
         "src/bsp",
     ],
     deps = [
-        ":active_object_lib",
         ":bootloader_confirm_lib",
         "@cmsis_device//:default_cmsis_init",
         "@stm32l4xx_hal_driver//:hal_driver",
@@ -99,22 +98,6 @@ cc_library(
         "@pigweed//pw_system:work_queue",
     ],
     copts = ["-mcpu=cortex-m4", "-mthumb"],
-)
-
-cc_library(
-    name = "active_object_lib",
-    hdrs = glob(["src/application/domain/active_object.hpp",]),
-    includes = ["src/application/domain"],
-    deps = [
-        "@pigweed//pw_assert:backend_impl",
-        "@pigweed//pw_assert:check_backend_impl",
-        "@pigweed//pw_assert:assert_backend_impl",
-        "@pigweed//pw_chrono:system_timer",
-        "@pigweed//pw_thread:thread_core",
-        "@pigweed//pw_sync:mutex",
-        "@pigweed//pw_sync:thread_notification",
-        "@pigweed//pw_containers:inline_queue",
-    ],
 )
 
 cc_library(
@@ -169,19 +152,6 @@ pw_elf_to_bin(
 ################################################################################
 # application test                                                             #
 ################################################################################
-
-pw_cc_test(
-    name = "active_object_test",
-    srcs = ["src/application/domain/test/active_object_test.cpp"],
-    deps = [
-        ":active_object_lib",
-        "@pigweed//pw_allocator:testing",
-        "@pigweed//pw_async2:dispatcher",
-        "@pigweed//pw_async2:simulated_time_provider",
-        "@pigweed//pw_chrono:system_clock",
-        "@pigweed//pw_unit_test",
-    ],
-)
 
 ################################################################################
 # bootloader                                                                   #

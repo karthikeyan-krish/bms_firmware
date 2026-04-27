@@ -67,7 +67,6 @@ jobs:
       - name: Run unit tests
         run: |
           bazel test \
-            //apps:active_object_test \
             //apps:bld_crc32_test \
             //apps:bld_engine_test \
             //apps:bld_meta_test \
