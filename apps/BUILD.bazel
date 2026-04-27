@@ -104,6 +104,8 @@ cc_library(
     name = "domain",
     hdrs = glob([
         "src/application/domain/bms_parameters.hpp",
+        "src/application/domain/fault_status.hpp",
+        "src/application/domain/processed_inputs.hpp",
         "src/application/domain/raw_inputs.hpp",
         "src/application/domain/raw_inputs_sink.hpp",
     ]),
@@ -139,6 +141,30 @@ cc_library(
         ":domain",
         "@pigweed//pw_chrono:system_clock",
         "@pigweed//pw_chrono:system_timer",
+        "@pigweed//pw_log",
+        "@pigweed//pw_sync:mutex",
+        "@pigweed//pw_sync:thread_notification",
+        "@pigweed//pw_thread:thread_core",
+    ],
+)
+
+cc_library(
+    name = "filters_lib",
+    hdrs = glob([
+        "src/application/filters/ema_filter.hpp",
+        "src/application/filters/median_filter.hpp",
+    ]),
+    includes = ["src/application/filters"],
+)
+
+cc_library(
+    name = "processing_thread",
+    hdrs = glob(["src/application/threads/processing_thread.hpp"]),
+    srcs = ["src/application/threads/processing_thread.cpp"],
+    includes = ["src/application/threads"],
+    deps = [
+        ":domain",
+        ":filters_lib",
         "@pigweed//pw_log",
         "@pigweed//pw_sync:mutex",
         "@pigweed//pw_sync:thread_notification",
@@ -228,6 +254,17 @@ pw_cc_test(
     ],
     deps = [
         ":acquisition_thread",
+        "@pigweed//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "processing_thread_test",
+    srcs = [
+        "src/application/test/processing_thread_test.cpp",
+    ],
+    deps = [
+        ":processing_thread",
         "@pigweed//pw_unit_test",
     ],
 )
