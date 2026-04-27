@@ -29,4 +29,25 @@ inline constexpr int32_t kTemperatureMinMc = -5000;
 inline constexpr int32_t kTemperatureMaxMc = 65000;
 inline constexpr int32_t kTemperatureSpikeMc = 75000;
 
+// Processing queue sizing.
+inline constexpr uint32_t kProcessingQueueDepth = 16U;
+
+// Safety limits.
+inline constexpr uint32_t kOvervoltageLimitMv = 40000U;
+inline constexpr int32_t kOvertemperatureLimitMc = 60000;
+inline constexpr int32_t kUndertemperatureLimitMc = -20000;
+
+// Current stress model.
+inline constexpr uint32_t kStressScale = 1000000U;
+
+inline constexpr uint32_t kCurrentLowThresholdMa = 100000U;
+inline constexpr uint32_t kCurrentMediumThresholdMa = 120000U;
+inline constexpr uint32_t kCurrentHighThresholdMa = 150000U;
+inline constexpr uint32_t kCurrentCutoffThresholdMa = 170000U;
+
+inline constexpr uint32_t kCurrentLowAllowedTimeMs = 20000U;
+inline constexpr uint32_t kCurrentMediumAllowedTimeMs = 10000U;
+inline constexpr uint32_t kCurrentHighAllowedTimeMs = 5000U;
+inline constexpr uint32_t kCurrentRecoveryThresholdMa = 90000U;
+
 }  // namespace bms::domain::parameters
