@@ -23,7 +23,7 @@ cc_library(
 
 cc_binary(
     name = "application",
-    srcs = ["src/application/main.cc"],
+    srcs = ["src/application/main.cpp"],
     deps = [
         ":application_lib",
         ":startup",
@@ -34,7 +34,7 @@ cc_binary(
 
 cc_binary(
     name = "application_slot_a",
-    srcs = ["src/application/main.cc"],
+    srcs = ["src/application/main.cpp"],
     deps = [
         ":application_lib",
         ":startup",
@@ -48,7 +48,7 @@ cc_binary(
 
 cc_binary(
     name = "application_slot_b",
-    srcs = ["src/application/main.cc"],
+    srcs = ["src/application/main.cpp"],
     deps = [
         ":application_lib",
         ":startup",
@@ -67,12 +67,12 @@ cc_library(
     [
         "include/main.h",
         "src/application/*.h",
-        "src/application/*.cc",
+        "src/application/*.cpp",
         "src/application/*.c",
         "src/bsp/*.h",
         "src/bsp/*.c",
     ],
-    exclude = ["src/application/main.cc"],
+    exclude = ["src/application/main.cpp"],
     ),
     includes = [
         "include",
@@ -172,7 +172,7 @@ pw_elf_to_bin(
 
 pw_cc_test(
     name = "active_object_test",
-    srcs = ["src/application/domain/test/active_object_test.cc"],
+    srcs = ["src/application/domain/test/active_object_test.cpp"],
     deps = [
         ":active_object_lib",
         "@pigweed//pw_allocator:testing",
@@ -210,7 +210,7 @@ cc_library(
     srcs = glob(
     [
         "include/main.h",
-        "src/bootloader/src/*.cc",
+        "src/bootloader/src/*.cpp",
         "src/bootloader/src/*.c",
         "src/bsp/*.h",
         "src/bsp/*.c",
@@ -325,7 +325,7 @@ pw_elf_to_bin(
 pw_cc_test(
     name = "bld_crc32_test",
     srcs = [
-        "src/bootloader/test/bld_crc32_test.cc",
+        "src/bootloader/test/bld_crc32_test.cpp",
     ],
     deps = [
         ":bootloader_core",
@@ -336,7 +336,7 @@ pw_cc_test(
 cc_library(
     name = "bootloader_test_stubs",
     srcs = [
-        "src/bootloader/test/test_stubs.cc",
+        "src/bootloader/test/test_stubs.cpp",
     ],
     hdrs = [
         "src/bootloader/test/test_stubs.hpp",
@@ -352,7 +352,7 @@ cc_library(
 pw_cc_test(
     name = "bld_meta_test",
     srcs = [
-        "src/bootloader/test/bld_meta_test.cc",
+        "src/bootloader/test/bld_meta_test.cpp",
     ],
     deps = [
         ":bootloader_core",
@@ -364,7 +364,7 @@ pw_cc_test(
 pw_cc_test(
     name = "bld_engine_test",
     srcs = [
-        "src/bootloader/test/bld_engine_test.cc",
+        "src/bootloader/test/bld_engine_test.cpp",
     ],
     deps = [
         ":bootloader_core",
@@ -376,7 +376,7 @@ pw_cc_test(
 pw_cc_test(
     name = "bld_transport_uart_dma_test",
     srcs = [
-        "src/bootloader/test/bld_transport_uart_dma_test.cc",
+        "src/bootloader/test/bld_transport_uart_dma_test.cpp",
     ],
     deps = [
         ":bootloader_transport_uart_dma",
@@ -388,7 +388,7 @@ pw_cc_test(
 pw_cc_test(
     name = "bld_storage_flash_test",
     srcs = [
-        "src/bootloader/test/bld_storage_flash_test.cc",
+        "src/bootloader/test/bld_storage_flash_test.cpp",
     ],
     deps = [
         ":bootloader_storage",
