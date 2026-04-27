@@ -101,6 +101,33 @@ cc_library(
 )
 
 cc_library(
+    name = "domain",
+    hdrs = glob([
+        "src/application/domain/bms_parameters.hpp",
+    ]),
+    includes = ["src/application/domain"],
+)
+
+cc_library(
+    name = "drivers",
+    hdrs = glob(["src/application/drivers/sim_sensor.hpp"]),
+    srcs = ["src/application/drivers/sim_sensor.cpp"],
+    includes = ["src/application/drivers"],
+    deps = [
+        ":domain",
+    ],
+)
+
+cc_library(
+    name = "abstraction",
+    hdrs = glob(["src/application/abstraction/sensor_abstraction.hpp"]),
+    includes = ["src/application/abstraction"],
+    deps = [
+        ":drivers",
+    ],
+)
+
+cc_library(
     name = "bootloader_confirm_lib",
     hdrs = glob(["src/application/bootloader_confirm/bld_confirm.h",]),
     srcs = ["src/application/bootloader_confirm/bld_confirm.c"],
@@ -152,6 +179,28 @@ pw_elf_to_bin(
 ################################################################################
 # application test                                                             #
 ################################################################################
+
+pw_cc_test(
+    name = "sim_sensor_test",
+    srcs = [
+        "src/application/test/sim_sensor_test.cpp",
+    ],
+    deps = [
+        ":drivers",
+        "@pigweed//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "sensor_abstraction_test",
+    srcs = [
+        "src/application/test/sensor_abstraction_test.cpp",
+    ],
+    deps = [
+        ":abstraction",
+        "@pigweed//pw_unit_test",
+    ],
+)
 
 ################################################################################
 # bootloader                                                                   #
