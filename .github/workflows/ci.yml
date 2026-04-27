@@ -67,6 +67,7 @@ jobs:
       - name: Run unit tests
         run: |
           bazel test \
+            //apps:processing_thread_test \
             //apps:acquisition_thread_test \
             //apps:sim_sensor_test \
             //apps:sensor_abstraction_test \

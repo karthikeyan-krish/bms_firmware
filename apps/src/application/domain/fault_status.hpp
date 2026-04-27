@@ -11,4 +11,3 @@ struct FaultStatus {
 };
 
 }  // namespace bms::domain
-

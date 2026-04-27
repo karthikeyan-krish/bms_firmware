@@ -50,4 +50,3 @@ class MedianFilter {
   std::size_t count_;
   T last_output_;
 };
-
