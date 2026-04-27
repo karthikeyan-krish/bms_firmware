@@ -104,6 +104,8 @@ cc_library(
     name = "domain",
     hdrs = glob([
         "src/application/domain/bms_parameters.hpp",
+        "src/application/domain/raw_inputs.hpp",
+        "src/application/domain/raw_inputs_sink.hpp",
     ]),
     includes = ["src/application/domain"],
 )
@@ -124,6 +126,23 @@ cc_library(
     includes = ["src/application/abstraction"],
     deps = [
         ":drivers",
+    ],
+)
+
+cc_library(
+    name = "acquisition_thread",
+    hdrs = glob(["src/application/threads/acquisition_thread.hpp"]),
+    srcs = ["src/application/threads/acquisition_thread.cpp"],
+    includes = ["src/application/threads"],
+    deps = [
+        ":abstraction",
+        ":domain",
+        "@pigweed//pw_chrono:system_clock",
+        "@pigweed//pw_chrono:system_timer",
+        "@pigweed//pw_log",
+        "@pigweed//pw_sync:mutex",
+        "@pigweed//pw_sync:thread_notification",
+        "@pigweed//pw_thread:thread_core",
     ],
 )
 
@@ -198,6 +217,17 @@ pw_cc_test(
     ],
     deps = [
         ":abstraction",
+        "@pigweed//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "acquisition_thread_test",
+    srcs = [
+        "src/application/test/acquisition_thread_test.cpp",
+    ],
+    deps = [
+        ":acquisition_thread",
         "@pigweed//pw_unit_test",
     ],
 )
