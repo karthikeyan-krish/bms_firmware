@@ -11,7 +11,6 @@
 #include <pw_thread/sleep.h>
 #include <task.h>
 
-#include "active_object.hpp"
 #include "gpio.h"
 
 #if defined(BLD_APP_SLOT_BUILD)
@@ -30,8 +29,6 @@ static_assert(static_cast<UBaseType_t>(ThreadPriority::kNumPriorities) <=
               configMAX_PRIORITIES);
 
 constexpr size_t kWorkQueueThreadWords = 512;
-
-pw::sync::Mutex fsm_mutex_;
 
 }  // namespace
 
