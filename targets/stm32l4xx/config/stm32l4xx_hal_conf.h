@@ -21,8 +21,7 @@
 /* USER CODE END Header */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef STM32L4xx_HAL_CONF_H
-#define STM32L4xx_HAL_CONF_H
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -486,5 +485,3 @@ void assert_failed(uint8_t *file, uint32_t line);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* STM32L4xx_HAL_CONF_H */

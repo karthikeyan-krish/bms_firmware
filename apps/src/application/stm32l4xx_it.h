@@ -18,8 +18,7 @@
 /* USER CODE END Header */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __STM32L4xx_IT_H
-#define __STM32L4xx_IT_H
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,5 +60,3 @@ void EXTI15_10_IRQHandler(void);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __STM32L4xx_IT_H */
