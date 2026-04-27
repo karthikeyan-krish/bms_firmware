@@ -54,4 +54,3 @@ class EmaFilter {
   T state_;
   bool initialized_;
 };
-

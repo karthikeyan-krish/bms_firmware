@@ -15,4 +15,3 @@ struct ProcessedInputs {
 };
 
 }  // namespace bms::domain
-
