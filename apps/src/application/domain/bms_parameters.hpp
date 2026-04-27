@@ -4,6 +4,12 @@
 
 namespace bms::domain::parameters {
 
+// Acquisition queue sizing and periods.
+inline constexpr uint32_t kAcquisitionSensorQueueSize = 16U;
+inline constexpr uint32_t kCurrentSamplePeriodMs = 10U;
+inline constexpr uint32_t kVoltageSamplePeriodMs = 20U;
+inline constexpr uint32_t kTemperatureSamplePeriodMs = 100U;
+
 // Simulated sensor ranges and nominal values.
 inline constexpr int32_t kVoltageNominalMv = 35000;
 inline constexpr uint32_t kVoltageNoiseAmplitudeMv = 200U;
