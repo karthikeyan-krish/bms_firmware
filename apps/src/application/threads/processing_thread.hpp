@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 
+#include "bms_fsm.hpp"
 #include "bms_parameters.hpp"
 #include "fault_status.hpp"
 #include "median_filter.hpp"
@@ -86,6 +87,7 @@ class ProcessingThreadCore : public pw::thread::ThreadCore,
 
   bms::domain::ProcessedInputs processed_inputs_;
   bms::domain::FaultStatus fault_status_;
+  bms::domain::BmsFsmContext bms_fsm_;
 
   MedianFilter<uint32_t, 7U> voltage_filter_;
   MedianFilter<int32_t, 7U> current_filter_;
