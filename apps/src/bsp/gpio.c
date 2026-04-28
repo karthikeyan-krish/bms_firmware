@@ -50,17 +50,14 @@ void bsp_init(void)
 	/*set EXTI13 to port C*/
 	SYSCFG->EXTICR[3] |= (2 << (1 * 4));
 
-	/*disable rising edge trigger*/
-	EXTI->RTSR1 &= ~(1U << B2_PIN);
-	/*disable falling edge trigger*/
-	EXTI->FTSR1 &= ~(1U << B2_PIN);
-	/*configure falling edge trigger*/
+	/*configure both edges so press/release map to connected/disconnected*/
+	EXTI->RTSR1 |= (1U << B2_PIN);
 	EXTI->FTSR1 |= (1U << B2_PIN);
 
 	/*clear pending bit for EXTI line 13*/
 	EXTI->PR1 = (1U << B2_PIN);
 
-	/*configure interrupt as falling edge*/
+	/*enable EXTI interrupt*/
 	EXTI->IMR1 |= (1U << B2_PIN);
 
 	HAL_NVIC_SetPriority(EXTI15_10_IRQn, 6, 0);
