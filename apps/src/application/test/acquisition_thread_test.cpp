@@ -16,9 +16,10 @@ namespace {
 
 class RecordingRawInputsSink final : public bms::domain::RawInputsSink {
  public:
-  void PostRawInputs(const bms::domain::RawInputs& raw_inputs) override {
+  bool PostRawInputs(const bms::domain::RawInputs& raw_inputs) override {
     latest = raw_inputs;
     ++post_count;
+    return true;
   }
 
   bms::domain::RawInputs latest{};
@@ -67,14 +68,17 @@ TEST(AcquisitionThreadCoreTest, ApplySensorSampleUpdatesMatchingRawField) {
   EXPECT_EQ(acquisition.raw_inputs_.pack_voltage_mv.value, 48000U);
   EXPECT_EQ(acquisition.raw_inputs_.pack_voltage_mv.tick_ms, 10U);
   EXPECT_TRUE(acquisition.raw_inputs_.pack_voltage_mv.valid);
+  EXPECT_TRUE(acquisition.raw_inputs_.voltage_new);
 
   EXPECT_EQ(acquisition.raw_inputs_.pack_current_ma.value, 12000);
   EXPECT_EQ(acquisition.raw_inputs_.pack_current_ma.tick_ms, 20U);
   EXPECT_TRUE(acquisition.raw_inputs_.pack_current_ma.valid);
+  EXPECT_TRUE(acquisition.raw_inputs_.current_new);
 
   EXPECT_EQ(acquisition.raw_inputs_.pack_temperature_mc.value, 25000);
   EXPECT_EQ(acquisition.raw_inputs_.pack_temperature_mc.tick_ms, 30U);
   EXPECT_FALSE(acquisition.raw_inputs_.pack_temperature_mc.valid);
+  EXPECT_TRUE(acquisition.raw_inputs_.temperature_new);
 }
 
 TEST(AcquisitionThreadCoreTest, PublishRawInputsPostsToSink) {
@@ -94,6 +98,33 @@ TEST(AcquisitionThreadCoreTest, PublishRawInputsPostsToSink) {
   EXPECT_EQ(sink.latest.pack_voltage_mv.value, 48000U);
   EXPECT_EQ(sink.latest.pack_current_ma.value, 12000);
   EXPECT_EQ(sink.latest.pack_temperature_mc.value, 25000);
+  EXPECT_TRUE(sink.latest.voltage_new);
+  EXPECT_TRUE(sink.latest.current_new);
+  EXPECT_TRUE(sink.latest.temperature_new);
+  EXPECT_FALSE(acquisition.raw_inputs_.voltage_new);
+  EXPECT_FALSE(acquisition.raw_inputs_.current_new);
+  EXPECT_FALSE(acquisition.raw_inputs_.temperature_new);
+}
+
+TEST(AcquisitionThreadCoreTest, PublishRawInputsOnlyMarksFreshChannelsNew) {
+  RecordingRawInputsSink sink;
+  bms::threads::AcquisitionThreadCore acquisition(sink);
+
+  acquisition.ApplySensorSample(
+      MakeSample(bms::abstraction::SensorChannel::kVoltage, 48000U, 10U));
+  acquisition.PublishRawInputs();
+
+  EXPECT_TRUE(sink.latest.voltage_new);
+  EXPECT_FALSE(sink.latest.current_new);
+  EXPECT_FALSE(sink.latest.temperature_new);
+
+  acquisition.ApplySensorSample(
+      MakeSample(bms::abstraction::SensorChannel::kCurrent, 12000U, 20U));
+  acquisition.PublishRawInputs();
+
+  EXPECT_FALSE(sink.latest.voltage_new);
+  EXPECT_TRUE(sink.latest.current_new);
+  EXPECT_FALSE(sink.latest.temperature_new);
 }
 
 TEST(AcquisitionThreadCoreTest, CurrentAndTemperaturePreserveNegativeSamples) {
