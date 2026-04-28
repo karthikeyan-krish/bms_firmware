@@ -19,6 +19,9 @@ bms::domain::RawInputs MakeRaw(uint32_t voltage_mv,
   raw.pack_voltage_mv = {voltage_mv, 1U, true};
   raw.pack_current_ma = {current_ma, 1U, true};
   raw.pack_temperature_mc = {temperature_mc, 1U, true};
+  raw.voltage_new = true;
+  raw.current_new = true;
+  raw.temperature_new = true;
   return raw;
 }
 
@@ -57,21 +60,50 @@ TEST(ProcessingThreadCoreTest, ProcessSampleUpdatesProcessedInputs) {
   const bms::domain::FaultStatus faults = processing.GetLatestFaultStatus();
   EXPECT_FALSE(faults.sensor_fault);
   EXPECT_FALSE(faults.overvoltage);
+  EXPECT_FALSE(faults.undervoltage);
   EXPECT_FALSE(faults.overcurrent);
   EXPECT_FALSE(faults.overtemperature);
   EXPECT_FALSE(faults.undertemperature);
+  EXPECT_EQ(processing.GetLatestBmsState(),
+            bms::domain::BmsState::kIdleDischarge);
 }
 
-TEST(ProcessingThreadCoreTest, InvalidChannelsSetSensorFault) {
+TEST(ProcessingThreadCoreTest, PartialFreshSampleDoesNotSetSensorFault) {
   bms::threads::ProcessingThreadCore processing;
 
   bms::domain::RawInputs raw{};
   raw.pack_voltage_mv = {36000U, 1U, true};
+  raw.voltage_new = true;
+
+  processing.ProcessSample(raw);
+
+  const bms::domain::FaultStatus faults = processing.GetLatestFaultStatus();
+  EXPECT_FALSE(faults.sensor_fault);
+  EXPECT_EQ(processing.GetLatestBmsState(),
+            bms::domain::BmsState::kIdleDischarge);
+}
+
+TEST(ProcessingThreadCoreTest, FreshInvalidChannelSetsSensorFault) {
+  bms::threads::ProcessingThreadCore processing;
+
+  bms::domain::RawInputs raw = MakeRaw(36000U, 1000U, 25000U);
+  raw.pack_temperature_mc.valid = false;
 
   processing.ProcessSample(raw);
 
   const bms::domain::FaultStatus faults = processing.GetLatestFaultStatus();
   EXPECT_TRUE(faults.sensor_fault);
+  EXPECT_EQ(processing.GetLatestBmsState(), bms::domain::BmsState::kSecure);
+}
+
+TEST(ProcessingThreadCoreTest, FreshFlagsAreClearedAfterSecurityCheck) {
+  bms::threads::ProcessingThreadCore processing;
+
+  processing.ProcessSample(MakeRaw(36000U, 1000U, 25000U));
+
+  EXPECT_FALSE(processing.processed_inputs_.voltage_new);
+  EXPECT_FALSE(processing.processed_inputs_.current_new);
+  EXPECT_FALSE(processing.processed_inputs_.temperature_new);
 }
 
 TEST(ProcessingThreadCoreTest, VoltageAndTemperatureThresholdsSetFaults) {
@@ -84,6 +116,37 @@ TEST(ProcessingThreadCoreTest, VoltageAndTemperatureThresholdsSetFaults) {
   EXPECT_FALSE(faults.overcurrent);
   EXPECT_TRUE(faults.overtemperature);
   EXPECT_FALSE(faults.undertemperature);
+  EXPECT_EQ(processing.GetLatestBmsState(), bms::domain::BmsState::kSecure);
+}
+
+TEST(ProcessingThreadCoreTest, UndervoltageThresholdSetsFault) {
+  bms::threads::ProcessingThreadCore processing;
+
+  processing.ProcessSample(MakeRaw(28000U, 1000U, 25000U));
+
+  const bms::domain::FaultStatus faults = processing.GetLatestFaultStatus();
+  EXPECT_FALSE(faults.overvoltage);
+  EXPECT_TRUE(faults.undervoltage);
+  EXPECT_EQ(processing.GetLatestBmsState(), bms::domain::BmsState::kSecure);
+}
+
+TEST(ProcessingThreadCoreTest, ChargerConnectedToleratesUndervoltage) {
+  bms::threads::ProcessingThreadCore processing;
+
+  processing.SetChargerConnected(true);
+  processing.ProcessSample(MakeRaw(28000U, 1000U, 25000U));
+
+  const bms::domain::FaultStatus faults = processing.GetLatestFaultStatus();
+  EXPECT_TRUE(faults.undervoltage);
+  EXPECT_EQ(processing.GetLatestBmsState(), bms::domain::BmsState::kCharge);
+}
+
+TEST(ProcessingThreadCoreTest, UndervoltageUsesRecoveryHysteresis) {
+  bms::threads::ProcessingThreadCore processing;
+
+  EXPECT_TRUE(processing.DetectUndervoltage(28000U));
+  EXPECT_TRUE(processing.DetectUndervoltage(30000U));
+  EXPECT_FALSE(processing.DetectUndervoltage(31000U));
 }
 
 TEST(ProcessingThreadCoreTest, NegativeTemperatureBelowLimitSetsFault) {
@@ -96,16 +159,56 @@ TEST(ProcessingThreadCoreTest, NegativeTemperatureBelowLimitSetsFault) {
   EXPECT_TRUE(faults.undertemperature);
 }
 
-TEST(ProcessingThreadCoreTest, CurrentCutoffTripsImmediatelyAndRecovers) {
+TEST(ProcessingThreadCoreTest,
+     CurrentCutoffTripsImmediatelyAndRecoversAfterDelay) {
   bms::threads::ProcessingThreadCore processing;
 
   EXPECT_TRUE(processing.DetectCurrentFault(170000));
   EXPECT_TRUE(processing.current_fault_active_);
   EXPECT_EQ(processing.current_stress_, processing.kStressScale);
 
+  for (uint32_t i = 0U; i < 99U; ++i) {
+    EXPECT_TRUE(processing.DetectCurrentFault(89000));
+    EXPECT_TRUE(processing.current_fault_active_);
+  }
+
   EXPECT_FALSE(processing.DetectCurrentFault(89000));
   EXPECT_FALSE(processing.current_fault_active_);
   EXPECT_EQ(processing.current_stress_, 0U);
+}
+
+TEST(ProcessingThreadCoreTest, CurrentRecoveryDelayResetsOnBounce) {
+  bms::threads::ProcessingThreadCore processing;
+
+  ASSERT_TRUE(processing.DetectCurrentFault(170000));
+
+  for (uint32_t i = 0U; i < 50U; ++i) {
+    EXPECT_TRUE(processing.DetectCurrentFault(89000));
+  }
+
+  EXPECT_TRUE(processing.DetectCurrentFault(150000));
+
+  for (uint32_t i = 0U; i < 99U; ++i) {
+    EXPECT_TRUE(processing.DetectCurrentFault(89000));
+  }
+
+  EXPECT_FALSE(processing.DetectCurrentFault(89000));
+}
+
+TEST(ProcessingThreadCoreTest, ChargerConnectedSelectsChargeAfterFaultClears) {
+  bms::threads::ProcessingThreadCore processing;
+
+  processing.SetChargerConnected(true);
+  EXPECT_EQ(processing.GetLatestBmsState(), bms::domain::BmsState::kCharge);
+
+  processing.ProcessSample(MakeRaw(41000U, 1000U, 25000U));
+  EXPECT_EQ(processing.GetLatestBmsState(), bms::domain::BmsState::kSecure);
+
+  for (uint32_t i = 0U; i < 4U; ++i) {
+    processing.ProcessSample(MakeRaw(34000U, 1000U, 25000U));
+  }
+
+  EXPECT_EQ(processing.GetLatestBmsState(), bms::domain::BmsState::kCharge);
 }
 
 TEST(ProcessingThreadCoreTest, NegativeCurrentUsesAbsoluteValueForFaults) {
