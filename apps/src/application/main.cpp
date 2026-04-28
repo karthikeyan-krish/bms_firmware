@@ -11,7 +11,9 @@
 #include <pw_thread/sleep.h>
 #include <task.h>
 
+#include "acquisition_thread.hpp"
 #include "gpio.h"
+#include "processing_thread.hpp"
 
 #if defined(BLD_APP_SLOT_BUILD)
 #include "bld_confirm.h"
@@ -22,6 +24,8 @@ using namespace std::chrono_literals;
 
 enum class ThreadPriority : UBaseType_t {
   kWorkQueue = tskIDLE_PRIORITY + 1,
+  kProcessing = tskIDLE_PRIORITY + 2,
+  kAcquisition = tskIDLE_PRIORITY + 3,
   kNumPriorities,
 };
 
@@ -29,6 +33,10 @@ static_assert(static_cast<UBaseType_t>(ThreadPriority::kNumPriorities) <=
               configMAX_PRIORITIES);
 
 constexpr size_t kWorkQueueThreadWords = 512;
+constexpr size_t kProcessingThreadWords = 768;
+constexpr size_t kAcquisitionThreadWords = 768;
+constexpr auto kButtonDebouncePeriod =
+    pw::chrono::SystemClock::duration(std::chrono::milliseconds(30));
 
 }  // namespace
 
@@ -81,6 +89,12 @@ extern "C" void SystemClock_Config(void) {
 
 namespace {
 auto wq = pw::system::GetWorkQueue;
+bms::threads::ProcessingThreadCore processing_thread;
+bms::threads::AcquisitionThreadCore acquisition_thread(processing_thread);
+
+static void DebouncedButtonPressed(pw::chrono::SystemClock::time_point);
+pw::chrono::SystemTimer button_debounce_timer(DebouncedButtonPressed);
+
 static void StartWorkQueueThread() {
   pw::thread::DetachedThread(
       pw::thread::freertos::Options()
@@ -90,8 +104,29 @@ static void StartWorkQueueThread() {
       wq());
 }
 
-static void ButtonPressed() {
-  // button press from message queue
+static void StartBmsThreads() {
+  pw::thread::DetachedThread(
+      pw::thread::freertos::Options()
+          .set_name("ProcessingThread")
+          .set_priority(static_cast<UBaseType_t>(ThreadPriority::kProcessing))
+          .set_stack_size(kProcessingThreadWords),
+      processing_thread);
+
+  pw::thread::DetachedThread(
+      pw::thread::freertos::Options()
+          .set_name("AcquisitionThread")
+          .set_priority(static_cast<UBaseType_t>(ThreadPriority::kAcquisition))
+          .set_stack_size(kAcquisitionThreadWords),
+      acquisition_thread);
+}
+
+static void DebouncedButtonPressed(pw::chrono::SystemClock::time_point) {
+  processing_thread.SetChargerConnected(bsp_button_status());
+}
+
+static void ButtonEdgeDetected() {
+  button_debounce_timer.Cancel();
+  button_debounce_timer.InvokeAfter(kButtonDebouncePeriod);
 }
 
 }  // namespace
@@ -109,6 +144,7 @@ extern "C" int main(void) {
 #endif
 
   StartWorkQueueThread();
+  StartBmsThreads();
 
   vTaskStartScheduler();
 
@@ -118,7 +154,7 @@ extern "C" int main(void) {
 
 extern "C" void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if (GPIO_Pin == BUTTON_EXTI13_Pin) {
-    pw::system::GetWorkQueue().CheckPushWork(ButtonPressed);
+    pw::system::GetWorkQueue().CheckPushWork(ButtonEdgeDetected);
   }
 }
 extern "C" PW_NO_RETURN void Error_Handler(void) { PW_CRASH("Error"); }

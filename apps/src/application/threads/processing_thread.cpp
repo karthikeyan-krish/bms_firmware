@@ -54,6 +54,21 @@ bms::domain::FaultStatus ProcessingThreadCore::GetLatestFaultStatus() const {
   return fault_status_;
 }
 
+bms::domain::BmsState ProcessingThreadCore::GetLatestBmsState() const {
+  std::lock_guard<pw::sync::Mutex> lock(mutex_);
+  return bms_fsm_.GetState();
+}
+
+void ProcessingThreadCore::SetChargerConnected(bool connected) {
+  std::lock_guard<pw::sync::Mutex> lock(mutex_);
+  if (connected) {
+    bms_fsm_.HandleChargerConnected();
+  } else {
+    bms_fsm_.HandleChargerDisconnected();
+  }
+  bms_fsm_.UpdateFaultStatus(fault_status_);
+}
+
 void ProcessingThreadCore::EvaluateFaults(
     const bms::domain::ProcessedInputs& processed) {
   if (processed.voltage_new) {
@@ -86,6 +101,7 @@ void ProcessingThreadCore::EvaluateFaults(
                                current_sensor_fault_active_ ||
                                temperature_sensor_fault_active_;
 
+  bms_fsm_.UpdateFaultStatus(fault_status_);
 }
 
 bool ProcessingThreadCore::DetectOvervoltage(uint32_t voltage_mv) {
