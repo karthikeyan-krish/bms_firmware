@@ -12,6 +12,9 @@ struct ProcessedInputs {
   bool voltage_valid{false};
   bool current_valid{false};
   bool temperature_valid{false};
+  bool voltage_new{false};
+  bool current_new{false};
+  bool temperature_new{false};
 };
 
 }  // namespace bms::domain

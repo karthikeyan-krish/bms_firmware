@@ -7,7 +7,7 @@ namespace bms::domain {
 class RawInputsSink {
  public:
   virtual ~RawInputsSink() = default;
-  virtual void PostRawInputs(const RawInputs& raw_inputs) = 0;
+  virtual bool PostRawInputs(const RawInputs& raw_inputs) = 0;
 };
 
 }  // namespace bms::domain
