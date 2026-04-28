@@ -97,18 +97,21 @@ void AcquisitionThreadCore::ApplySensorSample(
           sample.value < 0 ? 0U : static_cast<uint32_t>(sample.value);
       raw_inputs_.pack_voltage_mv.tick_ms = sample.tick_ms;
       raw_inputs_.pack_voltage_mv.valid = sample.valid && sample.value >= 0;
+      raw_inputs_.voltage_new = true;
       break;
 
     case bms::abstraction::SensorChannel::kCurrent:
       raw_inputs_.pack_current_ma.value = sample.value;
       raw_inputs_.pack_current_ma.tick_ms = sample.tick_ms;
       raw_inputs_.pack_current_ma.valid = sample.valid;
+      raw_inputs_.current_new = true;
       break;
 
     case bms::abstraction::SensorChannel::kTemperature:
       raw_inputs_.pack_temperature_mc.value = sample.value;
       raw_inputs_.pack_temperature_mc.tick_ms = sample.tick_ms;
       raw_inputs_.pack_temperature_mc.valid = sample.valid;
+      raw_inputs_.temperature_new = true;
       break;
   }
 }
@@ -119,6 +122,9 @@ void AcquisitionThreadCore::PublishRawInputs() {
   {
     std::lock_guard<pw::sync::Mutex> lock(mutex_);
     msg = raw_inputs_;
+    raw_inputs_.voltage_new = false;
+    raw_inputs_.current_new = false;
+    raw_inputs_.temperature_new = false;
   }
 
   raw_inputs_sink_.PostRawInputs(msg);

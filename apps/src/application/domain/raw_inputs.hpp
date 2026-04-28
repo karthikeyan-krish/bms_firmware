@@ -21,6 +21,9 @@ struct RawInputs {
   TimestampedValueU32 pack_voltage_mv;
   TimestampedValueI32 pack_current_ma;
   TimestampedValueI32 pack_temperature_mc;
+  bool voltage_new{false};
+  bool current_new{false};
+  bool temperature_new{false};
 };
 
 }  // namespace bms::domain
